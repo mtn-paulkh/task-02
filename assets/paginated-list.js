@@ -72,6 +72,23 @@ export default class PaginatedList extends Component {
     return this.#renderPreviousPage();
   }
 
+  clearPageCache() {
+    this.pages.clear();
+
+    this.#resolveNextPagePromise?.();
+    this.#resolvePreviousPagePromise?.();
+
+    this.#resolveNextPagePromise = null;
+    this.#resolvePreviousPagePromise = null;
+  }
+
+  prefetchAdjacentPages() {
+    requestIdleCallback(() => {
+      this.#fetchPage('next');
+      this.#fetchPage('previous');
+    });
+  }
+
   /**
    * When true, each page navigation replaces the grid instead of appending or prepending.
    * @returns {boolean}
@@ -160,7 +177,13 @@ export default class PaginatedList extends Component {
       return;
     }
 
-    await this.#fetchSpecificPage(page.page, page.url);
+    try {
+      await this.#fetchSpecificPage(page.page, page.url);
+    } catch (error) {
+      resolvePromise();
+      throw error;
+    }
+
     resolvePromise();
   }
 
@@ -194,16 +217,9 @@ export default class PaginatedList extends Component {
     let nextPageItemElements = this.#getGridForPage(nextPage.page);
 
     if (!nextPageItemElements) {
-      const promise = new Promise((res) => {
-        this.#resolveNextPagePromise = res;
-      });
-
-      // Trigger the fetch for this page
-      this.#fetchPage('next');
-
-      await promise;
+      await this.#fetchPage('next');
       nextPageItemElements = this.#getGridForPage(nextPage.page);
-      if (!nextPageItemElements) return;
+      if (!nextPageItemElements) throw new Error('Failed to load the next page');
     }
     if (this.replacesPageContent) {
       grid.innerHTML = '';
@@ -232,16 +248,9 @@ export default class PaginatedList extends Component {
 
     let previousPageItemElements = this.#getGridForPage(previousPage.page);
     if (!previousPageItemElements) {
-      const promise = new Promise((res) => {
-        this.#resolvePreviousPagePromise = res;
-      });
-
-      // Trigger the fetch for this page
-      this.#fetchPage('previous');
-
-      await promise;
+      await this.#fetchPage('previous');
       previousPageItemElements = this.#getGridForPage(previousPage.page);
-      if (!previousPageItemElements) return;
+      if (!previousPageItemElements) throw new Error('Failed to load the previous page');
     }
 
     if (this.replacesPageContent) {

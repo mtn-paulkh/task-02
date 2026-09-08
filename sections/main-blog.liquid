@@ -29,6 +29,8 @@
 
     {% assign articles_per_page = 2 %}
 
+    {% render 'blog-tag-filters', blog: blog %}
+
     {% paginate blog.articles by articles_per_page %}
       <div
         ref="grid"
