@@ -20,6 +20,7 @@
 
 {% if block_settings.background_color != blank %}
   {% style %}
+    custom-blog-posts-list[section-id="{{ section.id }}"] .blog-post-item,
     blog-posts-list[section-id="{{ section.id }}"] .blog-post-item {
       --color-background: {{ block_settings.background_color }};
     }

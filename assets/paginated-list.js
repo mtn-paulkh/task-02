@@ -64,6 +64,22 @@ export default class PaginatedList extends Component {
     document.removeEventListener(StandardEvents.collectionUpdate, this.#handleFilterUpdate);
   }
 
+  loadNextPage() {
+    return this.#renderNextPage();
+  }
+
+  loadPreviousPage() {
+    return this.#renderPreviousPage();
+  }
+
+  /**
+   * When true, each page navigation replaces the grid instead of appending or prepending.
+   * @returns {boolean}
+   */
+  get replacesPageContent() {
+    return false;
+  }
+
   #observeViewMore() {
     const { viewMorePrevious, viewMoreNext } = this.refs;
 
@@ -189,10 +205,13 @@ export default class PaginatedList extends Component {
       nextPageItemElements = this.#getGridForPage(nextPage.page);
       if (!nextPageItemElements) return;
     }
+    if (this.replacesPageContent) {
+      grid.innerHTML = '';
+    }
 
     grid.append(...nextPageItemElements);
 
-    this.#aspectRatioHelper.processNewElements();
+    this.#aspectRatioHelper?.processNewElements();
 
     await yieldToMainThread();
 
@@ -225,25 +244,29 @@ export default class PaginatedList extends Component {
       if (!previousPageItemElements) return;
     }
 
-    // Store the current scroll position and height of the first element
-    const currentScrollTop = getScrollTop();
-    const firstElement = grid.firstElementChild;
-    const oldHeight = firstElement ? firstElement.getBoundingClientRect().top + currentScrollTop : 0;
+    if (this.replacesPageContent) {
+      grid.innerHTML = '';
+      grid.append(...previousPageItemElements);
+    } else {
+      // Store the current scroll position and height of the first element
+      const currentScrollTop = getScrollTop();
+      const firstElement = grid.firstElementChild;
+      const oldHeight = firstElement ? firstElement.getBoundingClientRect().top + currentScrollTop : 0;
 
-    // Prepend the new elements
-    grid.prepend(...previousPageItemElements);
+      grid.prepend(...previousPageItemElements);
 
-    this.#aspectRatioHelper.processNewElements();
-
-    // Calculate and adjust scroll position to maintain the same view
-    if (firstElement) {
-      const newHeight = firstElement.getBoundingClientRect().top + getScrollTop();
-      const heightDiff = newHeight - oldHeight;
-      scrollTo({
-        top: currentScrollTop + heightDiff,
-        behavior: 'instant',
-      });
+      // Calculate and adjust scroll position to maintain the same view
+      if (firstElement) {
+        const newHeight = firstElement.getBoundingClientRect().top + getScrollTop();
+        const heightDiff = newHeight - oldHeight;
+        scrollTo({
+          top: currentScrollTop + heightDiff,
+          behavior: 'instant',
+        });
+      }
     }
+
+    this.#aspectRatioHelper?.processNewElements();
 
     await yieldToMainThread();
 
