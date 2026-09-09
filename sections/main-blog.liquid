@@ -1,7 +1,5 @@
-
-
 <script
-  src="{{ 'blog-posts-list.js' | asset_url }}"
+  src="{{ 'custom-blog-posts-list.js' | asset_url }}"
   type="module"
   fetchpriority="low"
 ></script>
@@ -12,7 +10,7 @@
   endif
 %}
 
-<blog-posts-list section-id="{{ section.id }}">
+<custom-blog-posts-list section-id="{{ section.id }}">
   <div
     class="section-background{% if section.settings.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
   ></div>
@@ -29,141 +27,77 @@
   >
     {% content_for 'blocks' %}
 
-    <div
-      ref="grid"
-      class="blog-posts-container"
-    >
-      {% liquid
-        assign items_on_page = blog.articles.size
-        assign image_index = 0
+    {% assign articles_per_page = 2 %}
 
-        # The first two images reach the initial mobile viewport; later images use native lazy-loading.
-        assign eager_image_count = 2
+    {% render 'blog-tag-filters', blog: blog %}
 
-        # These sizes mirror --narrow-page-width in theme-styles-variables.liquid,
-        # --page-margin in base.css, and --columns-gap plus the mobile breakpoint below.
-        # Desktop content uses a 40px page margin on each side, with 36px column gaps.
-        # Compact cards use three columns and two gaps, standard cards use two columns and one gap,
-        # and the hero image uses 70% of the full-width card after its image-content gap.
-        assign compact_image_sizes = '(min-width: 1520px) 456px, (min-width: 750px) calc(33.33vw - 51px), calc(100vw - 32px)'
-        assign standard_image_sizes = '(min-width: 1520px) 702px, (min-width: 750px) calc(50vw - 58px), calc(100vw - 32px)'
-        assign hero_image_sizes = '(min-width: 1520px) 983px, (min-width: 750px) calc(70vw - 81px), calc(100vw - 32px)'
-      %}
-      {% for article in blog.articles %}
-        {% liquid
-          # Defaults for compact layout
-          assign col_span = 2
-          assign scale = 0.6
-          assign is_horizontal = false
-
-          case items_on_page
-            when 1
-              # Single post: full width hero
-              assign col_span = 6
-              assign scale = 1
-              assign is_horizontal = true
-            when 2
-              # Two posts: both standard side by side
-              assign col_span = 3
-              assign scale = 0.8
-            when 3
-              # Three posts: hero + 2 standard
-              if forloop.index == 1
-                assign col_span = 6
-                assign scale = 1
-                assign is_horizontal = true
-              else
-                assign col_span = 3
-                assign scale = 0.8
-              endif
-            when 4
-              # Four posts: all standard in 2x2 grid
-              assign col_span = 3
-              assign scale = 0.8
-            when 5
-              # Five posts: hero + 4 standard
-              if forloop.index == 1
-                assign col_span = 6
-                assign scale = 1
-                assign is_horizontal = true
-              else
-                assign col_span = 3
-                assign scale = 0.8
-              endif
-            else
-              # 6+ posts: hero, 2 standard, rest compact
-              if forloop.index == 1
-                assign col_span = 6
-                assign scale = 1
-                assign is_horizontal = true
-              elsif forloop.index <= 3
-                assign col_span = 3
-                assign scale = 0.8
-              else
-                assign col_span = 2
-                assign scale = 0.6
-              endif
-          endcase
-
-          case col_span
-            when 2
-              assign image_sizes = compact_image_sizes
-            when 3
-              assign image_sizes = standard_image_sizes
-            when 6
-              assign image_sizes = hero_image_sizes
-            else
-              # Safe fallback for a future span; add a matching sizes value with any new layout.
-              assign image_sizes = '100vw'
-          endcase
-
-          assign image_loading = 'lazy'
-          assign image_fetch_priority = 'auto'
-          if article.image
-            assign image_index = image_index | plus: 1
-
-            if image_index <= eager_image_count
-              assign image_loading = 'eager'
-            endif
-
-            if image_index == 1
-              assign image_fetch_priority = 'high'
-            endif
-          endif
-        %}
-        {% # Keep the mobile breakpoint in the style block below in sync with the responsive image sizes above. %}
-        {% style %}
-          [data-blog-index="{{ section.id }}-{{ forloop.index }}"] {
-            --col-span: {{ col_span }};
-            --blog-post-card-scale: {{ scale }};
-          }
-
-          @media screen and (max-width: 749px) {
+    {% paginate blog.articles by articles_per_page %}
+      <div
+        ref="grid"
+        class="blog-posts-container"
+        data-last-page="{{ paginate.pages }}"
+      >
+        {% for article in blog.articles %}
+          {% # Keep the mobile breakpoint in the style block below in sync with the responsive image sizes above. %}
+          {% style %}
             [data-blog-index="{{ section.id }}-{{ forloop.index }}"] {
-              --col-span: 6;
-              --blog-post-card-scale: 0.5;
             }
-          }
-        {% endstyle %}
-        <div
-          class="blog-post-item"
-          data-testid="blog-post-item"
-          data-blog-index="{{ section.id }}-{{ forloop.index }}"
+
+            @media screen and (max-width: 749px) {
+              [data-blog-index="{{ section.id }}-{{ forloop.index }}"] {
+              }
+            }
+          {% endstyle %}
+          <div
+            id="{{ section.id }}-{{ article.id }}"
+            class="blog-post-item"
+            data-testid="blog-post-item"
+            data-blog-index="{{ section.id }}-{{ forloop.index }}"
+            data-page="{{ paginate.current_page }}"
+            ref="cards[]"
+          >
+            {% content_for 'block',
+              id: 'static-blog-post-card',
+              type: '_blog-post-card',
+              article: article,
+              is_horizontal: false
+            %}
+          </div>
+        {% endfor %}
+      </div>
+
+      {%- if paginate.pages > 1 -%}
+        <nav
+          class="blog-posts-pagination"
+          aria-label="{{ 'content.pagination.nav_label' | t }}"
         >
-          {% content_for 'block',
-            id: 'static-blog-post-card',
-            type: '_blog-post-card',
-            article: article,
-            image_sizes: image_sizes,
-            image_loading: image_loading,
-            image_fetch_priority: image_fetch_priority,
-            is_horizontal: is_horizontal
-          %}
-        </div>
-      {% endfor %}
-    </div>
+          <button
+            type="button"
+            class="button-secondary blog-posts-pagination__button blog-posts-pagination__previous"
+            ref="paginationPrevious"
+            on:click="/onPaginationPreviousClick"
+            {% unless paginate.previous %}
+              disabled
+            {% endunless %}
+          >
+            {{ 'content.pagination.previous' | t }}
+          </button>
+          <button
+            type="button"
+            class="button-secondary blog-posts-pagination__button blog-posts-pagination__next"
+            ref="paginationNext"
+            on:click="/onPaginationNextClick"
+            {% unless paginate.next %}
+              disabled
+            {% endunless %}
+          >
+            {{ 'content.pagination.next' | t }}
+          </button>
+        </nav>
+      {%- endif -%}
+    {% endpaginate %}
   </div>
-</blog-posts-list>
+</custom-blog-posts-list>
 
 {% stylesheet %}
   /**
@@ -180,7 +114,7 @@
 
   .blog-posts-container {
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 1rem;
     width: 100%;
     column-gap: var(--columns-gap);
@@ -208,6 +142,20 @@
   .blog-post-item:has(.blog-post-card__image-container) {
     border: none;
     padding: 0;
+  }
+
+  .blog-posts-pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    width: 100%;
+    padding: var(--padding-xl) 0 0;
+  }
+
+  .blog-posts-pagination__button:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
   }
 {% endstylesheet %}
 
@@ -255,6 +203,15 @@
       "id": "background_color",
       "label": "t:settings.background_color",
       "placeholder": "t:settings.default"
+    },
+    {
+      "type": "range",
+      "id": "articles_per_page",
+      "label": "Articles per page",
+      "min": 2,
+      "max": 24,
+      "step": 1,
+      "default": 6
     },
     {
       "type": "header",

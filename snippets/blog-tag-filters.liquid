@@ -1,0 +1,87 @@
+{%- doc -%}
+  Renders blog tag filter links for the blog index page.
+
+  Uses native Shopify `/tagged/{handle}` URLs. Clicks are intercepted by
+  `CustomBlogPostsList` for Section Rendering API updates (progressive enhancement).
+
+  @param {object} blog - The blog object
+{%- enddoc -%}
+
+{%- if blog.all_tags.size > 0 -%}
+  {% render 'pills-styles' %}
+
+  <nav
+    ref="tagFilters"
+    class="blog-tag-filters"
+    aria-label="{{ 'content.filter' | t }}"
+  >
+    <ul class="blog-tag-filters__list" role="list">
+      <li class="blog-tag-filters__item">
+        <a
+          href="{{ blog.url }}"
+          class="blog-tag-filters__link pills__pill{% unless current_tags.size > 0 %} blog-tag-filters__link--active{% endunless %}"
+          {% unless current_tags.size > 0 %}
+            aria-current="true"
+          {% endunless %}
+          on:click="/onTagFilterClick"
+        >
+          All
+        </a>
+      </li>
+
+      {%- for tag in blog.all_tags -%}
+        <li class="blog-tag-filters__item">
+          <a
+            href="{{ blog.url }}/tagged/{{ tag | handle }}"
+            class="blog-tag-filters__link pills__pill{% if current_tags contains tag %} blog-tag-filters__link--active{% endif %}"
+            {% if current_tags contains tag %}
+              aria-current="true"
+            {% endif %}
+            on:click="/onTagFilterClick"
+          >
+            {{ tag }}
+          </a>
+        </li>
+      {%- endfor -%}
+    </ul>
+  </nav>
+{%- endif -%}
+
+{% stylesheet %}
+  .blog-tag-filters {
+    width: 100%;
+    padding-block-end: var(--padding-lg);
+  }
+
+  .blog-tag-filters__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--gap-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .blog-tag-filters__link {
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .blog-tag-filters__link.blog-tag-filters__link--active {
+    --pills-pill-background-color: var(--color-foreground);
+    background-color: var(--color-foreground);
+    color: var(--color-background);
+  }
+
+  .blog-tag-filters__link.blog-tag-filters__link--active:hover,
+  .blog-tag-filters__link.blog-tag-filters__link--active:focus-visible {
+    --pills-pill-background-color: var(--color-foreground);
+    background-color: var(--color-foreground);
+    color: var(--color-background);
+  }
+
+  custom-blog-posts-list[data-loading] .blog-posts-container {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+{% endstylesheet %}

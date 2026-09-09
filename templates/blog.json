@@ -101,9 +101,60 @@
         "padding-block-start": 0,
         "padding-block-end": 48
       }
+    },
+    "custom-form": {
+      "type": "form-custom",
+      "name": "Form Custom",
+      "blocks": {
+        "field_name": {
+          "type": "custom-form-field",
+          "settings": {
+            "name": "name",
+            "label": "Name",
+            "type": "input",
+            "required": true,
+            "min_length": 2
+          }
+        },
+        "field_email": {
+          "type": "custom-form-field",
+          "settings": {
+            "name": "email",
+            "label": "Email",
+            "type": "input",
+            "input_type": "email",
+            "required": true,
+            "min_length": 0
+          }
+        },
+        "field_message": {
+          "type": "custom-form-field",
+          "settings": {
+            "name": "message",
+            "label": "Message",
+            "type": "textarea",
+            "required": true,
+            "min_length": 10,
+            "rows": 4
+          }
+        }
+      },
+      "block_order": [
+        "field_name",
+        "field_email",
+        "field_message"
+      ],
+      "settings": {
+        "heading": "Contact us",
+        "submit_label": "Send",
+        "mock_response": "success",
+        "success_message": "Your message has been sent.",
+        "error_message": "Something went wrong. Please try again."
+      }
     }
   },
   "order": [
+    "custom-form",
     "main"
   ]
 }

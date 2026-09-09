@@ -1,0 +1,205 @@
+{% doc %}
+  Renders a configurable form field as a custom web component.
+
+  @example
+  {% content_for 'block', type: 'custom-form-field', id: 'field-name' %}
+{% enddoc %}
+
+{%- liquid
+  assign field_name = block.settings.name | default: block.id
+  assign field_id = 'CustomFormField-' | append: block.id
+  assign min_length = block.settings.min_length | default: 0
+  assign tag_name = 'custom-input'
+  if block.settings.type == 'textarea'
+    assign tag_name = 'custom-textarea'
+  endif
+  assign input_type = block.settings.input_type | default: 'text'
+  assign input_html_type = input_type
+  if input_type == 'phone'
+    assign input_html_type = 'tel'
+  endif
+  assign mask = ''
+  if input_type == 'phone'
+    assign mask = block.settings.mask
+    if mask == blank
+      assign mask = '+375(##)###-##-##'
+    endif
+  endif
+  assign field_placeholder = block.settings.placeholder
+  if field_placeholder == blank and input_type == 'phone' and mask != blank
+    assign field_placeholder = mask | replace: '#', '9'
+  endif
+-%}
+
+<{{ tag_name }}
+  class="form-custom__field"
+  data-name="{{ field_name | escape }}"
+  data-label="{{ block.settings.label | escape }}"
+  data-required="{{ block.settings.required }}"
+  data-min-length="{{ min_length }}"
+  {% if mask != blank %}
+    data-mask="{{ mask | escape }}"
+  {% endif %}
+  {{ block.shopify_attributes }}
+>
+  <label class="form-custom__field-label" for="{{ field_id }}">
+    <span class="form-custom__field-label-text">
+      {{- block.settings.label | escape -}}
+      {%- if block.settings.required -%}
+        <span class="form-custom__field-required" aria-hidden="true">*</span>
+      {%- endif -%}
+    </span>
+    {%- if block.settings.type == 'textarea' -%}
+      <textarea
+        ref="control"
+        id="{{ field_id }}"
+        name="{{ field_name | escape }}"
+        class="form-custom__control form-custom__control--textarea"
+        rows="{{ block.settings.rows | default: 4 }}"
+        {% if block.settings.required %}
+          required
+          aria-required="true"
+        {% endif %}
+        {% if min_length > 0 %}
+          minlength="{{ min_length }}"
+        {% endif %}
+        {% if field_placeholder != blank %}
+          placeholder="{{ field_placeholder | escape }}"
+        {% endif %}
+      ></textarea>
+    {%- else -%}
+      <input
+        ref="control"
+        id="{{ field_id }}"
+        type="{{ input_html_type }}"
+        name="{{ field_name | escape }}"
+        class="form-custom__control"
+        {% if input_type == 'phone' %}
+          autocomplete="tel"
+          inputmode="tel"
+        {% endif %}
+        {% if block.settings.required %}
+          required
+          aria-required="true"
+        {% endif %}
+        {% if min_length > 0 %}
+          minlength="{{ min_length }}"
+        {% endif %}
+        {% if field_placeholder != blank %}
+          placeholder="{{ field_placeholder | escape }}"
+        {% endif %}
+      >
+    {%- endif -%}
+  </label>
+  <span
+    ref="errorMessage"
+    class="form-custom__field-error"
+    role="alert"
+    aria-live="polite"
+    hidden
+  ></span>
+</{{ tag_name }}>
+
+{% schema %}
+{
+  "name": "Form field",
+  "settings": [
+    {
+      "type": "text",
+      "id": "name",
+      "label": "Name",
+      "default": "name"
+    },
+    {
+      "type": "text",
+      "id": "label",
+      "label": "Label",
+      "default": "Name"
+    },
+    {
+      "type": "select",
+      "id": "type",
+      "label": "Type",
+      "options": [
+        {
+          "value": "input",
+          "label": "Input"
+        },
+        {
+          "value": "textarea",
+          "label": "Textarea"
+        }
+      ],
+      "default": "input"
+    },
+    {
+      "type": "select",
+      "id": "input_type",
+      "label": "Input type",
+      "options": [
+        {
+          "value": "text",
+          "label": "Text"
+        },
+        {
+          "value": "email",
+          "label": "Email"
+        },
+        {
+          "value": "password",
+          "label": "Password"
+        },
+        {
+          "value": "phone",
+          "label": "Phone"
+        }
+      ],
+      "default": "text",
+      "visible_if": "{{ block.settings.type == 'input' }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "required",
+      "label": "Required",
+      "default": false
+    },
+    {
+      "type": "range",
+      "id": "min_length",
+      "label": "Minimum length",
+      "min": 0,
+      "max": 99,
+      "step": 1,
+      "default": 0
+    },
+    {
+      "type": "text",
+      "id": "placeholder",
+      "label": "Placeholder"
+    },
+    {
+      "type": "text",
+      "id": "mask",
+      "label": "Phone mask",
+      "info": "Use # for each digit, e.g. +375(##)###-##-##",
+      "visible_if": "{{ block.settings.type == 'input' and block.settings.input_type == 'phone' }}"
+    },
+    {
+      "type": "range",
+      "id": "rows",
+      "label": "Rows",
+      "min": 2,
+      "max": 12,
+      "step": 1,
+      "default": 4,
+      "visible_if": "{{ block.settings.type == 'textarea' }}"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Form field",
+      "category": "Forms"
+    }
+  ]
+}
+{% endschema %}

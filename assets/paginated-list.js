@@ -64,6 +64,39 @@ export default class PaginatedList extends Component {
     document.removeEventListener(StandardEvents.collectionUpdate, this.#handleFilterUpdate);
   }
 
+  loadNextPage() {
+    return this.#renderNextPage();
+  }
+
+  loadPreviousPage() {
+    return this.#renderPreviousPage();
+  }
+
+  clearPageCache() {
+    this.pages.clear();
+
+    this.#resolveNextPagePromise?.();
+    this.#resolvePreviousPagePromise?.();
+
+    this.#resolveNextPagePromise = null;
+    this.#resolvePreviousPagePromise = null;
+  }
+
+  prefetchAdjacentPages() {
+    requestIdleCallback(() => {
+      this.#fetchPage('next');
+      this.#fetchPage('previous');
+    });
+  }
+
+  /**
+   * When true, each page navigation replaces the grid instead of appending or prepending.
+   * @returns {boolean}
+   */
+  get replacesPageContent() {
+    return false;
+  }
+
   #observeViewMore() {
     const { viewMorePrevious, viewMoreNext } = this.refs;
 
@@ -144,7 +177,13 @@ export default class PaginatedList extends Component {
       return;
     }
 
-    await this.#fetchSpecificPage(page.page, page.url);
+    try {
+      await this.#fetchSpecificPage(page.page, page.url);
+    } catch (error) {
+      resolvePromise();
+      throw error;
+    }
+
     resolvePromise();
   }
 
@@ -178,21 +217,17 @@ export default class PaginatedList extends Component {
     let nextPageItemElements = this.#getGridForPage(nextPage.page);
 
     if (!nextPageItemElements) {
-      const promise = new Promise((res) => {
-        this.#resolveNextPagePromise = res;
-      });
-
-      // Trigger the fetch for this page
-      this.#fetchPage('next');
-
-      await promise;
+      await this.#fetchPage('next');
       nextPageItemElements = this.#getGridForPage(nextPage.page);
-      if (!nextPageItemElements) return;
+      if (!nextPageItemElements) throw new Error('Failed to load the next page');
+    }
+    if (this.replacesPageContent) {
+      grid.innerHTML = '';
     }
 
     grid.append(...nextPageItemElements);
 
-    this.#aspectRatioHelper.processNewElements();
+    this.#aspectRatioHelper?.processNewElements();
 
     await yieldToMainThread();
 
@@ -213,37 +248,34 @@ export default class PaginatedList extends Component {
 
     let previousPageItemElements = this.#getGridForPage(previousPage.page);
     if (!previousPageItemElements) {
-      const promise = new Promise((res) => {
-        this.#resolvePreviousPagePromise = res;
-      });
-
-      // Trigger the fetch for this page
-      this.#fetchPage('previous');
-
-      await promise;
+      await this.#fetchPage('previous');
       previousPageItemElements = this.#getGridForPage(previousPage.page);
-      if (!previousPageItemElements) return;
+      if (!previousPageItemElements) throw new Error('Failed to load the previous page');
     }
 
-    // Store the current scroll position and height of the first element
-    const currentScrollTop = getScrollTop();
-    const firstElement = grid.firstElementChild;
-    const oldHeight = firstElement ? firstElement.getBoundingClientRect().top + currentScrollTop : 0;
+    if (this.replacesPageContent) {
+      grid.innerHTML = '';
+      grid.append(...previousPageItemElements);
+    } else {
+      // Store the current scroll position and height of the first element
+      const currentScrollTop = getScrollTop();
+      const firstElement = grid.firstElementChild;
+      const oldHeight = firstElement ? firstElement.getBoundingClientRect().top + currentScrollTop : 0;
 
-    // Prepend the new elements
-    grid.prepend(...previousPageItemElements);
+      grid.prepend(...previousPageItemElements);
 
-    this.#aspectRatioHelper.processNewElements();
-
-    // Calculate and adjust scroll position to maintain the same view
-    if (firstElement) {
-      const newHeight = firstElement.getBoundingClientRect().top + getScrollTop();
-      const heightDiff = newHeight - oldHeight;
-      scrollTo({
-        top: currentScrollTop + heightDiff,
-        behavior: 'instant',
-      });
+      // Calculate and adjust scroll position to maintain the same view
+      if (firstElement) {
+        const newHeight = firstElement.getBoundingClientRect().top + getScrollTop();
+        const heightDiff = newHeight - oldHeight;
+        scrollTo({
+          top: currentScrollTop + heightDiff,
+          behavior: 'instant',
+        });
+      }
     }
+
+    this.#aspectRatioHelper?.processNewElements();
 
     await yieldToMainThread();
 

@@ -1,0 +1,221 @@
+<script
+  src="{{ 'custom-form.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+
+<div class="form-custom section-{{ section.id }}">
+  {%- if section.settings.heading != blank -%}
+    <div class="form-custom__header">
+      <h2 class="form-custom__heading">{{ section.settings.heading | escape }}</h2>
+    </div>
+  {%- endif -%}
+
+  <custom-form
+    class="form-custom__wrapper"
+    data-mock-response="{{ section.settings.mock_response }}"
+    data-error-message="{{ section.settings.error_message | escape }}"
+    data-success-message="{{ section.settings.success_message | escape }}"
+  >
+    <form
+      ref="form"
+      class="form-custom__form"
+      novalidate
+    >
+      {% content_for 'blocks' %}
+
+      <button
+        ref="submitButton"
+        type="submit"
+        class="form-custom__submit button"
+        disabled
+      >
+        {{ section.settings.submit_label | escape }}
+      </button>
+
+      <div
+        ref="successMessage"
+        class="form-custom__success"
+        role="status"
+        aria-live="polite"
+        hidden
+      >
+        {{ section.settings.success_message | escape }}
+      </div>
+    </form>
+  </custom-form>
+</div>
+
+{% stylesheet %}
+  .form-custom__wrapper {
+    display: block;
+  }
+
+  .form-custom__form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 20px;
+    max-width: 480px;
+  }
+
+  .form-custom__header {
+    padding: 20px 20px 0;
+  }
+
+  .form-custom__heading {
+    margin: 0;
+  }
+
+  .form-custom__field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .form-custom__field-label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .form-custom__field-label-text {
+    font-weight: 500;
+  }
+
+  .form-custom__field-required {
+    color: #c00;
+    margin-inline-start: 2px;
+  }
+
+  .form-custom__control {
+    border: 1px solid #ccc;
+    padding: 10px 12px;
+    border-radius: 4px;
+    font: inherit;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .form-custom__control--textarea {
+    resize: vertical;
+    min-height: 96px;
+  }
+
+  .form-custom__field[data-invalid] .form-custom__control {
+    border-color: #c00;
+  }
+
+  .form-custom__field-error {
+    color: #c00;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+  }
+
+  .form-custom__submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .form-custom__success {
+    padding: 12px;
+    border-radius: 4px;
+    background-color: #e8f5e9;
+    color: #1b5e20;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "Custom form",
+  "class": "section-wrapper",
+  "blocks": [
+    {
+      "type": "custom-form-field"
+    }
+  ],
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Contact us"
+    },
+    {
+      "type": "text",
+      "id": "submit_label",
+      "label": "Submit button label",
+      "default": "Send"
+    },
+    {
+      "type": "select",
+      "id": "mock_response",
+      "label": "Mock server response",
+      "options": [
+        {
+          "value": "success",
+          "label": "Success"
+        },
+        {
+          "value": "error",
+          "label": "Error"
+        }
+      ],
+      "default": "success"
+    },
+    {
+      "type": "text",
+      "id": "success_message",
+      "label": "Success message",
+      "default": "Your message has been sent."
+    },
+    {
+      "type": "text",
+      "id": "error_message",
+      "label": "Server error message",
+      "default": "Something went wrong. Please try again."
+    }
+  ],
+  "presets": [
+    {
+      "name": "Custom form",
+      "category": "Forms",
+      "blocks": {
+        "field_name": {
+          "type": "custom-form-field",
+          "settings": {
+            "name": "name",
+            "label": "Name",
+            "type": "input",
+            "required": true,
+            "min_length": 2
+          }
+        },
+        "field_email": {
+          "type": "custom-form-field",
+          "settings": {
+            "name": "email",
+            "label": "Email",
+            "type": "input",
+            "input_type": "email",
+            "required": true,
+            "min_length": 0
+          }
+        },
+        "field_message": {
+          "type": "custom-form-field",
+          "settings": {
+            "name": "message",
+            "label": "Message",
+            "type": "textarea",
+            "required": true,
+            "min_length": 10,
+            "rows": 4
+          }
+        }
+      },
+      "block_order": ["field_name", "field_email", "field_message"]
+    }
+  ]
+}
+{% endschema %}
