@@ -18,12 +18,15 @@
   if input_type == 'phone'
     assign input_html_type = 'tel'
   endif
-  assign mask = block.settings.mask
-  if mask == blank and input_type == 'phone'
-    assign mask = '+375(##)###-##-##'
+  assign mask = ''
+  if input_type == 'phone'
+    assign mask = block.settings.mask
+    if mask == blank
+      assign mask = '+375(##)###-##-##'
+    endif
   endif
   assign field_placeholder = block.settings.placeholder
-  if field_placeholder == blank and mask != blank
+  if field_placeholder == blank and input_type == 'phone' and mask != blank
     assign field_placeholder = mask | replace: '#', '9'
   endif
 -%}
@@ -177,9 +180,9 @@
     {
       "type": "text",
       "id": "mask",
-      "label": "Mask",
+      "label": "Phone mask",
       "info": "Use # for each digit, e.g. +375(##)###-##-##",
-      "visible_if": "{{ block.settings.type == 'input' }}"
+      "visible_if": "{{ block.settings.type == 'input' and block.settings.input_type == 'phone' }}"
     },
     {
       "type": "range",

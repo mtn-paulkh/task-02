@@ -30,6 +30,38 @@ function extractDigits(value) {
 
 /**
  * @param {string} mask
+ * @returns {string}
+ */
+function getMaskLiteralDigits(mask) {
+  let digits = '';
+
+  for (const char of mask) {
+    if (char === '#') continue;
+    if (char >= '0' && char <= '9') digits += char;
+  }
+
+  return digits;
+}
+
+/**
+ * @param {string} value
+ * @param {string} mask
+ * @returns {string}
+ */
+function extractUserDigits(value, mask) {
+  const allDigits = extractDigits(value);
+  const literalDigits = getMaskLiteralDigits(mask);
+  const maxUserDigits = getMaskDigitCount(mask);
+
+  if (literalDigits && allDigits.startsWith(literalDigits)) {
+    return allDigits.slice(literalDigits.length, literalDigits.length + maxUserDigits);
+  }
+
+  return allDigits.slice(0, maxUserDigits);
+}
+
+/**
+ * @param {string} mask
  * @returns {number}
  */
 function getMaskDigitCount(mask) {
@@ -76,12 +108,12 @@ function formatWithMask(digits, mask) {
 }
 
 /**
- * @param {string} value
+ * @param {string} userDigits
  * @param {string} mask
  * @returns {boolean}
  */
-function isMaskComplete(value, mask) {
-  return extractDigits(value).length === getMaskDigitCount(mask);
+function isMaskComplete(userDigits, mask) {
+  return userDigits.length === getMaskDigitCount(mask);
 }
 
 /**
@@ -111,12 +143,6 @@ class CustomFormField extends Component {
   /** @type {() => void} */
   #boundReset;
 
-  /** @type {string} */
-  #mask = '';
-
-  /** @type {number} */
-  #maskDigitCount = 0;
-
   constructor() {
     super();
     this.#boundValidateRequest = this.#handleValidateRequest.bind(this);
@@ -138,8 +164,6 @@ class CustomFormField extends Component {
     this.#formHost?.addEventListener(FOCUS_INVALID_EVENT, this.#boundFocusRequest);
     this.#formHost?.addEventListener(RESET_EVENT, this.#boundReset);
 
-    this.#initMask();
-
     this.#emitState();
   }
 
@@ -155,19 +179,8 @@ class CustomFormField extends Component {
     this.#formHost?.removeEventListener(RESET_EVENT, this.#boundReset);
   }
 
-  #initMask() {
-    this.#mask = this.dataset.mask?.trim() ?? '';
-    this.#maskDigitCount = this.#mask ? getMaskDigitCount(this.#mask) : 0;
-  }
-
   #handleFocus = () => {
-    const { control } = this.refs;
-    if (!(control instanceof HTMLInputElement) || !this.#mask || control.value) return;
-
-    const prefix = getMaskPrefix(this.#mask);
-    if (prefix) {
-      control.value = prefix;
-    }
+    this.handleControlFocus();
   };
 
   #handleBlur = () => {
@@ -175,8 +188,7 @@ class CustomFormField extends Component {
   };
 
   #handleInput = () => {
-    if (this.#mask && this.refs.control instanceof HTMLInputElement) {
-      this.#applyMaskToControl();
+    if (this.handleControlInput()) {
       this.#validate({ forceShowError: this.#hasShownError });
       return;
     }
@@ -184,6 +196,25 @@ class CustomFormField extends Component {
     if (!this.#hasShownError) return;
     this.#validate({ forceShowError: true });
   };
+
+  handleControlFocus() {}
+
+  /**
+   * @returns {boolean}
+   */
+  handleControlInput() {
+    return false;
+  }
+
+  handleControlReset() {}
+
+  /**
+   * @param {HTMLInputElement | HTMLTextAreaElement} _control
+   * @returns {string}
+   */
+  getAdditionalValidationMessage(_control) {
+    return '';
+  }
 
   /**
    * @param {Event} event
@@ -205,6 +236,7 @@ class CustomFormField extends Component {
   #handleReset() {
     const { control, errorMessage } = this.refs;
     if (control) control.value = '';
+    this.handleControlReset();
     this.#status = 'untouched';
     this.#hasShownError = false;
 
@@ -214,18 +246,6 @@ class CustomFormField extends Component {
     control?.removeAttribute('aria-describedby');
 
     this.#emitState();
-  }
-
-  #applyMaskToControl() {
-    const control = this.refs.control;
-    if (!(control instanceof HTMLInputElement) || !this.#mask) return;
-
-    const digits = extractDigits(control.value).slice(0, this.#maskDigitCount);
-    const formatted = formatWithMask(digits, this.#mask);
-
-    if (control.value !== formatted) {
-      control.value = formatted;
-    }
   }
 
   /**
@@ -275,9 +295,8 @@ class CustomFormField extends Component {
       return `${label} is required`;
     }
 
-    if (this.#mask && value.length > 0 && !isMaskComplete(value, this.#mask)) {
-      return `${label} is incomplete`;
-    }
+    const additionalMessage = this.getAdditionalValidationMessage(control);
+    if (additionalMessage) return additionalMessage;
 
     if (minLength > 0 && value.length > 0 && value.length < minLength) {
       return `${label} must be at least ${minLength} characters`;
@@ -348,6 +367,61 @@ class CustomFormField extends Component {
 
 class CustomInput extends CustomFormField {
   static componentName = 'custom-input';
+
+  /** @type {string} */
+  #mask = '';
+
+  /** @type {string} */
+  #maskDigits = '';
+
+  connectedCallback() {
+    super.connectedCallback();
+    this.#mask = this.dataset.mask?.trim() ?? '';
+  }
+
+  handleControlFocus() {
+    const { control } = this.refs;
+    if (!(control instanceof HTMLInputElement) || !this.#mask || control.value) return;
+
+    this.#maskDigits = '';
+    const prefix = getMaskPrefix(this.#mask);
+    if (prefix) control.value = prefix;
+  }
+
+  handleControlInput() {
+    if (!this.#mask || !(this.refs.control instanceof HTMLInputElement)) return false;
+
+    this.#applyMaskToControl();
+    return true;
+  }
+
+  handleControlReset() {
+    this.#maskDigits = '';
+  }
+
+  /**
+   * @param {HTMLInputElement | HTMLTextAreaElement} control
+   * @returns {string}
+   */
+  getAdditionalValidationMessage(control) {
+    if (!this.#mask || control.value.trim().length === 0) return '';
+    if (isMaskComplete(this.#maskDigits, this.#mask)) return '';
+
+    const label = this.dataset.label || this.dataset.name || '';
+    return `${label} is incomplete`;
+  }
+
+  #applyMaskToControl() {
+    const control = this.refs.control;
+    if (!(control instanceof HTMLInputElement) || !this.#mask) return;
+
+    this.#maskDigits = extractUserDigits(control.value, this.#mask);
+    const formatted = formatWithMask(this.#maskDigits, this.#mask);
+
+    if (control.value !== formatted) {
+      control.value = formatted;
+    }
+  }
 }
 
 class CustomTextarea extends CustomFormField {
