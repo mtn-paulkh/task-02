@@ -6,7 +6,6 @@ import PaginatedList from '@theme/paginated-list';
 export default class BlogPostsList extends PaginatedList {
   connectedCallback() {
     super.connectedCallback();
-    console.log('BlogPostsList connected');
     this.addEventListener('click', (event) => {
       console.log('click', event);
     });
